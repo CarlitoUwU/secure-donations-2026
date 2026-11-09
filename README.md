@@ -4,6 +4,10 @@ Prototipo académico para la Fundación AQP-SOLIDARIA. Las donaciones serán sim
 
 El proyecto parte del [enunciado](requirements.md) y del [diseño técnico](design.md). La primera versión local muestra el estado vacío del catálogo. El catálogo conectado, Cognito y el despliegue SAM se incorporarán en los siguientes cambios.
 
+## Contrato de seguridad
+
+La [propuesta de identidad y autorización de P2](docs/security-contract.md) contiene la matriz de rutas, el contrato de claims, el reparto con P1/P3/P4 y el diseño de T09. Está pendiente de confirmación del equipo; no representa controles desplegados.
+
 ## Desarrollo local
 
 Requiere Node.js 24 y npm.
