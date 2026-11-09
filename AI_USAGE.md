@@ -1,5 +1,15 @@
 # Registro de uso de IA
 
+## Configuración de identidad Cognito
+
+- **Herramienta:** OpenAI Codex.
+- **Participante:** JorgeCY21 (P2).
+- **Tareas asistidas:** plantilla local de Cognito y guía de integración, decisiones de tokens y propuesta de enrolamiento TOTP.
+- **Aportes:** `infra/cognito.yaml`, `docs/cognito-setup.md` y enlace en README; rama `feature/cognito-identity`. PR pendiente.
+- **Validación humana:** pendiente de revisión por otro integrante y coordinación con P1/P4.
+- **Comprobaciones locales:** YAML analizado correctamente (7 recursos y 3 parámetros), `git diff --check` sin errores. SAM y cfn-lint no están instalados; no se validó el esquema CloudFormation ni se ejecutaron pruebas AWS.
+- **Limitaciones:** no se accedió ni desplegó en AWS; PKCE, alta TOTP y pruebas de aceptación pendientes. OPTIONAL no impone MFA por grupo.
+
 ## Contrato de identidad y autorización
 
 - **Herramienta:** OpenAI Codex.
