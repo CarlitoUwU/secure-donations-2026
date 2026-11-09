@@ -1,0 +1,697 @@
+openapi: 3.1.0
+info:
+  title: AQP-SOLIDARIA — API P3
+  version: 0.1.0
+  description: Prototipo académico, donaciones simuladas sin cobros. Matriz
+    acordada con P2. P1 aportará URL real. GET /v1/audit es extensión pendiente
+    y no está implementada. API Gateway valida JWT y scopes; Lambda valida grupo
+    y propietario. Errores 429 de throttling son gestionados por Gateway.
+paths:
+  /v1/projects:
+    get:
+      operationId: listProjects
+      summary: listProjects
+      x-requirement: HU-01
+      security: []
+      parameters:
+        - name: nextToken
+          in: query
+          schema:
+            type: string
+            maxLength: 2048
+          description: Cursor devuelto en la página anterior; máximo 50 elementos por
+            página. GSI eventualmente consistente.
+      responses:
+        "200":
+          description: Resultado correcto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectPage"
+              example:
+                items:
+                  - &a1
+                    title: Alimentos para AQP
+                    description: Proyecto académico ficticio
+                    goalAmountCents: 100000
+                    projectId: 11111111-1111-4111-8111-111111111111
+                    currency: PEN
+                    status: PUBLICADO
+                    confirmedAmountCents: 0
+                    createdAt: 2026-11-09T12:00:00Z
+                    updatedAt: 2026-11-09T12:00:00Z
+                    revision: 1
+        "400":
+          $ref: "#/components/responses/E400"
+        "500":
+          $ref: "#/components/responses/Internal"
+    post:
+      operationId: createProject
+      summary: createProject
+      x-requirement: HU-08
+      security:
+        - Cognito:
+            - api/projects.write
+      parameters: []
+      responses:
+        "201":
+          description: Resultado correcto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+              example:
+                title: Alimentos para AQP
+                description: Proyecto académico ficticio
+                goalAmountCents: 100000
+                projectId: 11111111-1111-4111-8111-111111111111
+                currency: PEN
+                status: BORRADOR
+                confirmedAmountCents: 0
+                createdAt: 2026-11-09T12:00:00Z
+                updatedAt: 2026-11-09T12:00:00Z
+                revision: 0
+        "400":
+          $ref: "#/components/responses/E400"
+        "401":
+          $ref: "#/components/responses/E401"
+        "403":
+          $ref: "#/components/responses/E403"
+        "500":
+          $ref: "#/components/responses/Internal"
+      x-required-group: GESTOR
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectInput"
+            example:
+              title: Alimentos para AQP
+              description: Proyecto académico ficticio
+              goalAmountCents: 100000
+  /v1/projects/{projectId}:
+    get:
+      operationId: getProject
+      summary: getProject
+      x-requirement: HU-02
+      security: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Resultado correcto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+              example: *a1
+        "404":
+          $ref: "#/components/responses/E404"
+        "500":
+          $ref: "#/components/responses/Internal"
+    patch:
+      operationId: editProject
+      summary: editProject
+      x-requirement: HU-08
+      security:
+        - Cognito:
+            - api/projects.write
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Resultado correcto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+              example:
+                title: Alimentos para AQP
+                description: Proyecto académico ficticio
+                goalAmountCents: 100000
+                projectId: 11111111-1111-4111-8111-111111111111
+                currency: PEN
+                status: BORRADOR
+                confirmedAmountCents: 0
+                createdAt: 2026-11-09T12:00:00Z
+                updatedAt: 2026-11-09T12:00:00Z
+                revision: 1
+        "400":
+          $ref: "#/components/responses/E400"
+        "401":
+          $ref: "#/components/responses/E401"
+        "403":
+          $ref: "#/components/responses/E403"
+        "404":
+          $ref: "#/components/responses/E404"
+        "409":
+          $ref: "#/components/responses/E409"
+        "500":
+          $ref: "#/components/responses/Internal"
+      x-required-group: GESTOR
+      description: "Propuesta P3: edición parcial exclusivamente en BORRADOR. Proyecto
+        publicado devuelve 409. Límites de texto y meta definidos en schemas."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectPatch"
+            example:
+              title: Nuevo título
+  /v1/projects/{projectId}/stats:
+    get:
+      operationId: projectStats
+      summary: projectStats
+      x-requirement: HU-09
+      security: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Resultado correcto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
+              example:
+                projectId: 11111111-1111-4111-8111-111111111111
+                currency: PEN
+                goalAmountCents: 100000
+                confirmedAmountCents: 0
+        "404":
+          $ref: "#/components/responses/E404"
+        "500":
+          $ref: "#/components/responses/Internal"
+  /v1/projects/{projectId}/publish:
+    patch:
+      operationId: publishProject
+      summary: publishProject
+      x-requirement: HU-08
+      security:
+        - Cognito:
+            - api/projects.write
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Resultado correcto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+              example: *a1
+        "400":
+          $ref: "#/components/responses/E400"
+        "401":
+          $ref: "#/components/responses/E401"
+        "403":
+          $ref: "#/components/responses/E403"
+        "404":
+          $ref: "#/components/responses/E404"
+        "409":
+          $ref: "#/components/responses/E409"
+        "500":
+          $ref: "#/components/responses/Internal"
+      x-required-group: GESTOR
+  /v1/donations:
+    post:
+      operationId: createDonation
+      summary: createDonation
+      x-requirement: HU-05
+      security:
+        - Cognito:
+            - api/donations.write
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: UUID por usuario e intención. Reutilizar en reintentos idénticos.
+            Ventana mínima 24 h; puede durar más hasta la eliminación TTL.
+            Devuelve la respuesta original con 201.
+      responses:
+        "201":
+          description: Resultado correcto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Donation"
+              example: &a2
+                donationId: 22222222-2222-4222-8222-222222222222
+                projectId: 11111111-1111-4111-8111-111111111111
+                donorSub: identidad-ficticia
+                amountCents: 500
+                currency: PEN
+                status: PENDIENTE_SIMULACION
+                createdAt: 2026-11-09T12:00:00Z
+                updatedAt: 2026-11-09T12:00:00Z
+        "400":
+          $ref: "#/components/responses/E400"
+        "401":
+          $ref: "#/components/responses/E401"
+        "403":
+          $ref: "#/components/responses/E403"
+        "404":
+          $ref: "#/components/responses/E404"
+        "409":
+          $ref: "#/components/responses/E409"
+        "500":
+          $ref: "#/components/responses/Internal"
+      x-required-group: DONANTE
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DonationInput"
+            example:
+              projectId: 11111111-1111-4111-8111-111111111111
+              amountCents: 500
+  /v1/donations/{donationId}/simulate:
+    post:
+      operationId: simulateDonation
+      summary: simulateDonation
+      x-requirement: HU-06
+      security:
+        - Cognito:
+            - api/donations.write
+      parameters:
+        - name: donationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Resultado correcto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Donation"
+              example:
+                donationId: 22222222-2222-4222-8222-222222222222
+                projectId: 11111111-1111-4111-8111-111111111111
+                donorSub: identidad-ficticia
+                amountCents: 500
+                currency: PEN
+                status: CONFIRMADA_SIMULADA
+                createdAt: 2026-11-09T12:00:00Z
+                updatedAt: 2026-11-09T12:00:00Z
+        "400":
+          $ref: "#/components/responses/E400"
+        "401":
+          $ref: "#/components/responses/E401"
+        "403":
+          $ref: "#/components/responses/E403"
+        "404":
+          $ref: "#/components/responses/E404"
+        "409":
+          $ref: "#/components/responses/E409"
+        "500":
+          $ref: "#/components/responses/Internal"
+      x-required-group: DONANTE
+      x-stage: academic
+      description: Solo propietario. Ruta ausente fuera de academic. Solo pendiente →
+        estado terminal; una transición repetida devuelve 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimulationInput"
+            example:
+              status: CONFIRMADA_SIMULADA
+  /v1/donations/me:
+    get:
+      operationId: myDonations
+      summary: myDonations
+      x-requirement: HU-07
+      security:
+        - Cognito:
+            - api/donations.read
+      parameters:
+        - name: nextToken
+          in: query
+          schema:
+            type: string
+            maxLength: 2048
+          description: Cursor devuelto en la página anterior; máximo 50 elementos por
+            página. GSI eventualmente consistente.
+      responses:
+        "200":
+          description: Resultado correcto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DonationPage"
+              example:
+                items:
+                  - *a2
+        "400":
+          $ref: "#/components/responses/E400"
+        "401":
+          $ref: "#/components/responses/E401"
+        "403":
+          $ref: "#/components/responses/E403"
+        "500":
+          $ref: "#/components/responses/Internal"
+      x-required-group: DONANTE
+  /v1/donations/{donationId}:
+    get:
+      operationId: getDonation
+      summary: getDonation
+      x-requirement: HU-07
+      security:
+        - Cognito:
+            - api/donations.read
+      parameters:
+        - name: donationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Resultado correcto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Donation"
+              example: *a2
+        "400":
+          $ref: "#/components/responses/E400"
+        "401":
+          $ref: "#/components/responses/E401"
+        "403":
+          $ref: "#/components/responses/E403"
+        "404":
+          $ref: "#/components/responses/E404"
+        "500":
+          $ref: "#/components/responses/Internal"
+      x-required-group: DONANTE
+      description: Solo propietario; recurso ajeno e inexistente tienen el mismo 404.
+components:
+  schemas:
+    ProjectInput:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 160
+        description:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        goalAmountCents:
+          type: integer
+          minimum: 1
+          maximum: 1000000000
+      required:
+        - title
+        - description
+        - goalAmountCents
+    ProjectPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 160
+        description:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        goalAmountCents:
+          type: integer
+          minimum: 1
+          maximum: 1000000000
+      required: []
+      minProperties: 1
+    Project:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 160
+        description:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        goalAmountCents:
+          type: integer
+          minimum: 1
+          maximum: 1000000000
+        projectId:
+          type: string
+          format: uuid
+        currency:
+          const: PEN
+        status:
+          enum:
+            - BORRADOR
+            - PUBLICADO
+        confirmedAmountCents:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        revision:
+          type: integer
+          minimum: 0
+      required:
+        - title
+        - description
+        - goalAmountCents
+        - projectId
+        - currency
+        - status
+        - confirmedAmountCents
+        - createdAt
+        - updatedAt
+        - revision
+    DonationInput:
+      type: object
+      additionalProperties: false
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        amountCents:
+          type: integer
+          minimum: 100
+          maximum: 100000
+      required:
+        - projectId
+        - amountCents
+    SimulationInput:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          enum:
+            - CONFIRMADA_SIMULADA
+            - RECHAZADA_SIMULADA
+      required:
+        - status
+    Donation:
+      type: object
+      additionalProperties: false
+      properties:
+        donationId:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        donorSub:
+          type: string
+        amountCents:
+          type: integer
+          minimum: 100
+          maximum: 100000
+        currency:
+          const: PEN
+        status:
+          enum:
+            - PENDIENTE_SIMULACION
+            - CONFIRMADA_SIMULADA
+            - RECHAZADA_SIMULADA
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - donationId
+        - projectId
+        - donorSub
+        - amountCents
+        - currency
+        - status
+        - createdAt
+        - updatedAt
+    Stats:
+      type: object
+      additionalProperties: false
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        currency:
+          const: PEN
+        goalAmountCents:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        confirmedAmountCents:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+      required:
+        - projectId
+        - currency
+        - goalAmountCents
+        - confirmedAmountCents
+    Error:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+      required:
+        - code
+        - message
+        - requestId
+    ProjectPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Project"
+        nextToken:
+          type: string
+      required:
+        - items
+    DonationPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Donation"
+        nextToken:
+          type: string
+      required:
+        - items
+  responses:
+    Internal:
+      description: Error interno sanitizado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    E400:
+      description: Solicitud inválida
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    E401:
+      description: Credencial ausente o inválida. El esquema de errores generados por
+        API Gateway está pendiente de verificar con P1/P2.
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: "#/components/schemas/Error"
+              - type: object
+                additionalProperties: false
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
+    E403:
+      description: Grupo o scope insuficiente. El esquema de errores generados por API
+        Gateway está pendiente de verificar con P1/P2.
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: "#/components/schemas/Error"
+              - type: object
+                additionalProperties: false
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
+    E404:
+      description: Recurso no encontrado (incluye donación ajena)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    E409:
+      description: Conflicto de estado o idempotencia
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  securitySchemes:
+    Cognito:
+      type: oauth2
+      description: Reemplazar dominio de ejemplo por el de P2. Authorization Code +
+        PKCE; cliente público sin secreto.
+      flows:
+        authorizationCode:
+          authorizationUrl: https://cognito.example.invalid/oauth2/authorize
+          tokenUrl: https://cognito.example.invalid/oauth2/token
+          scopes:
+            api/projects.write: Gestionar proyectos
+            api/donations.write: Crear y simular donaciones propias
+            api/donations.read: Consultar donaciones propias
