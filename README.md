@@ -23,3 +23,16 @@ npm run build
 ```
 
 Se usa TypeScript 6 porque la versión de `typescript-eslint` fijada en este proyecto requiere TypeScript anterior a 6.1.
+
+### Desarrollo en Windows con Docker
+
+Si el control de aplicaciones de Windows bloquea una dependencia nativa de Vite, abre Docker Desktop y ejecuta esto desde la raíz del repositorio en PowerShell.
+
+```powershell
+docker run --rm -it -p 127.0.0.1:5173:5173 `
+  --mount "type=bind,source=$($PWD.Path),target=/app" `
+  --mount "type=volume,target=/app/node_modules" `
+  -w /app node:24-bookworm-slim sh -c 'npm ci && npm run dev -- --host 0.0.0.0 --strictPort'
+```
+
+Abre <http://127.0.0.1:5173>. Docker instala las dependencias de Linux en un volumen separado.
