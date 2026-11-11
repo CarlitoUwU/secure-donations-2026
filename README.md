@@ -6,6 +6,10 @@ El proyecto parte del [enunciado](requirements.md) y del [diseño técnico](desi
 
 ## Contrato de seguridad
 
+La [configuración local de Cognito](docs/cognito-setup.md) describe la plantilla de identidad, los parámetros para infraestructura y las verificaciones pendientes de PKCE y MFA.
+
+La [guía de verificación](docs/security-verification.md) reúne los casos de aceptación de seguridad y el mapeo de NIST SP 800-207.
+
 La [propuesta de identidad y autorización de P2](docs/security-contract.md) contiene la matriz de rutas, el contrato de claims, el reparto con P1/P3/P4 y el diseño de T09. Está pendiente de confirmación del equipo; no representa controles desplegados.
 
 ## Desarrollo local
@@ -40,6 +44,20 @@ Para conectarlo al despliegue, copia `frontend/.env.example` a `frontend/.env.lo
 - `VITE_DRAFT_LIST_PATH` es opcional. Debe apuntar a la ruta protegida y paginada de borradores cuando se incorpore al OpenAPI. Hasta entonces, Gestión muestra los borradores creados en la sesión actual.
 
 Registra en Cognito el retorno `<origen>/auth/callback` y la salida `<origen>/` para cada entorno. Para la integración local usa el origen de localhost acordado con el equipo, con su puerto exacto. Configura CloudFront para servir la SPA en sus rutas directas, incluida `/auth/callback`.
+
+## API y datos — P3
+
+El backend implementa proyectos, donaciones simuladas, idempotencia, historial privado y agregados. Consulta el [contrato OpenAPI](docs/api.yaml) y la [guía de integración P1/P2/P4](docs/p3-integracion.md). La infraestructura AWS y el módulo definitivo de identidad se integran con P1/P2.
+
+```sh
+npm run test:backend
+npm run validate:api
+npm run build:backend
+```
+
+`npm test`, `npm run typecheck` y `npm run build` incluyen frontend y backend. Los tests locales no requieren cuenta AWS. Los handlers se compilan para Lambda; no se ha añadido un login ficticio ni un servidor local que lo sustituya.
+
+Cuando exista el stage académico, ejecutar `node scripts/acceptance-p3.mjs` con API_BASE_URL, GESTOR_ACCESS_TOKEN, DONOR_A_ACCESS_TOKEN y DONOR_B_ACCESS_TOKEN proporcionados mediante el entorno local (no en Git ni chat). Crea proyectos/donaciones ficticios y guarda únicamente resultados sanitizados. `--seed-performance` añade 49 proyectos para completar 50 en un dataset inicialmente vacío. P1 elimina los datos al limpiar la pila. Consultar [evidencias](evidence/README.md) para medir rendimiento.
 
 ### Desarrollo en Windows con Docker
 
