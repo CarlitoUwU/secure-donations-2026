@@ -1,5 +1,15 @@
 # Registro de uso de IA
 
+## Desarrollo del frontend
+
+- **Herramienta:** OpenAI Codex.
+- **Participante:** Carlo Valdivia.
+- **Tareas asistidas:** implementación del catálogo, el inicio de sesión con Cognito y los flujos de donante y gestor.
+- **Aportes:** cambios del frontend en la rama `feat/p4-project-catalog`.
+- **Validación humana:** Carlo Valdivia revisó el alcance del frontend. La revisión del PR por otro integrante está pendiente.
+- **Comprobaciones:** pruebas automatizadas, compilación y recorridos en navegador.
+- **Limitaciones:** queda pendiente validar la integración con la API y Cognito desplegados.
+
 ## Configuración de identidad Cognito
 
 - **Continuación en [PR #4](https://github.com/CarlitoUwU/secure-donations-2026/pull/4):** comprobación de cliente, roles, scopes y propietario en el backend, con pruebas unitarias. Guías de integración SAM, alta TOTP, verificación NIST y script de pruebas contra la API. Pasaron lint, tipos, OpenAPI, 17 pruebas y compilación local. Validación de entorno AWS pendiente.

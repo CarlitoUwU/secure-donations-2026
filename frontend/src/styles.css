@@ -1,1 +1,368 @@
 @import 'tailwindcss';
+
+:root {
+  color: #192640;
+  background: #f8f6ef;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.container {
+  width: min(100% - 2.5rem, 68rem);
+  margin-inline: auto;
+}
+
+.site-header {
+  border-bottom: 1px solid #d5d7d4;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: .4rem 1.5rem;
+  padding-block: 1rem;
+}
+
+.brand {
+  font-weight: 750;
+}
+
+.project-id {
+  color: #4b5665;
+  font-size: .9rem;
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 1;
+  inset: .5rem auto auto .5rem;
+  padding: .6rem 1rem;
+  background: white;
+  translate: 0 -200%;
+}
+
+.skip-link:focus {
+  translate: 0;
+}
+
+:where(a, button, h1, main):focus-visible {
+  outline: 3px solid #166052;
+  outline-offset: 4px;
+}
+
+.main-content {
+  min-height: 65vh;
+  padding-block: clamp(1.25rem, 4vw, 2.75rem) 3.5rem;
+}
+
+.hero {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  background: #192640;
+  color: #fffdf5;
+  padding: clamp(1.5rem, 5vw, 3.5rem);
+}
+
+.hero-copy {
+  position: relative;
+  max-width: 32rem;
+}
+
+.hero-lines {
+  position: absolute;
+  z-index: -1;
+  width: min(100%, 34rem);
+  inset: auto 0 0 auto;
+  stroke: #e5b854;
+  stroke-width: 1.3;
+  opacity: .27;
+}
+
+.hero h1, .detail h1 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(2.15rem, 5.8vw, 4.4rem);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -.035em;
+}
+
+.hero h1:focus-visible {
+  outline-color: #e5b854;
+}
+
+.hero p {
+  margin-top: 1rem;
+  color: #f2ebd9;
+  max-width: 29rem;
+}
+
+.project-section, .detail-progress {
+  margin-top: 2rem;
+}
+
+.project-section h2, .detail-progress h2 {
+  font-size: 1.35rem;
+  font-weight: 750;
+  margin-bottom: .8rem;
+}
+
+.project-grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.project-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #d5d7d4;
+  border-top: .28rem solid #166052;
+  background: #fff;
+  padding: clamp(1.1rem, 3vw, 1.75rem);
+  min-width: 0;
+}
+
+.project-card h3 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.65rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.card-description {
+  margin-block: .75rem 1.15rem;
+  color: #4b5665;
+  flex: 1;
+}
+
+.project-amounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem 1.5rem;
+}
+
+.project-amounts dt {
+  color: #4b5665;
+  font-size: .85rem;
+}
+
+.project-amounts dd {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-track {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-top: .65rem;
+  font-size: .9rem;
+  font-weight: 700;
+}
+
+.progress-track progress {
+  width: 100%;
+  min-width: 0;
+  height: .6rem;
+  appearance: none;
+  border: 0;
+  border-radius: 1rem;
+  background: #e4ebe5;
+  color: #166052;
+}
+
+.progress-track progress::-webkit-progress-bar {
+  background: #e4ebe5;
+  border-radius: 1rem;
+}
+
+.progress-track progress::-webkit-progress-value {
+  background: #166052;
+  border-radius: 1rem;
+}
+
+.progress-track progress::-moz-progress-bar {
+  background: #166052;
+  border-radius: 1rem;
+}
+
+.project-link, .back-link, .notice button {
+  color: #166052;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: .24em;
+  padding-block: .55rem;
+}
+
+.project-link {
+  align-self: start;
+  margin-top: .75rem;
+}
+
+.project-link:hover, .back-link:hover, .notice button:hover {
+  color: #192640;
+}
+
+.back-link {
+  display: inline-block;
+}
+
+.detail {
+  max-width: 44rem;
+}
+
+.project-status {
+  margin-block: 1.4rem .5rem;
+  color: #166052;
+  font-weight: 700;
+}
+
+.project-id {
+  margin-top: .85rem;
+  overflow-wrap: anywhere;
+}
+
+.detail-description {
+  font-size: 1.1rem;
+  margin-top: 1.3rem;
+}
+
+.detail-progress, .notice {
+  padding: 1.25rem;
+  border: 1px solid #d5d7d4;
+  background: white;
+}
+
+.notice {
+  margin-bottom: 1rem;
+}
+
+.notice h1 {
+  font-size: 1.5rem;
+  font-weight: 750;
+  margin-bottom: .5rem;
+}
+
+.notice button {
+  cursor: pointer;
+  margin-right: 1rem;
+}
+
+.demo-nav, .pagination, .form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .8rem 1.25rem;
+}
+
+.demo-nav {
+  padding-bottom: .8rem;
+}
+
+.demo-nav a, .pagination a, .record-list a {
+  color: #166052;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: .24em;
+}
+
+.pagination, .form-actions, .detail-action {
+  margin-top: 1.25rem;
+}
+
+.demo-page {
+  max-width: 44rem;
+}
+
+.demo-page h1 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(2rem, 5vw, 3.1rem);
+  font-weight: 700;
+  line-height: 1.1;
+  margin-block: .35rem .8rem;
+}
+
+.demo-page > .notice {
+  margin-top: 1.25rem;
+}
+
+.demo-form {
+  display: grid;
+  gap: .75rem;
+  margin-top: 1.25rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  background: #fff;
+  border: 1px solid #d5d7d4;
+}
+
+.demo-form label {
+  font-weight: 700;
+}
+
+.demo-form input, .demo-form textarea {
+  min-width: 0;
+  padding: .55rem .65rem;
+  border: 1px solid #657080;
+  border-radius: .2rem;
+}
+
+.demo-form :where(input, textarea):focus-visible {
+  outline: 3px solid #166052;
+  outline-offset: 3px;
+}
+
+.form-error {
+  color: #a12328;
+  font-weight: 700;
+}
+
+.action-button {
+  display: inline-block;
+  width: fit-content;
+  padding: .6rem .95rem;
+  background: #166052;
+  border: 1px solid #166052;
+  border-radius: .2rem;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.action-button.secondary {
+  color: #166052;
+  background: #fff;
+}
+
+.action-button:disabled {
+  opacity: .65;
+  cursor: wait;
+}
+
+.record-list {
+  margin-block: 1.25rem;
+  border-top: 1px solid #d5d7d4;
+}
+
+.record-list li {
+  padding: 1rem;
+  border-bottom: 1px solid #d5d7d4;
+  background: #fff;
+}
+
+.record-list time {
+  color: #4b5665;
+  font-size: .9rem;
+}
+
+.donation-status {
+  color: #166052;
+  font-weight: 700;
+  margin-top: 1rem;
+}
+
+@media (min-width: 44rem) {
+  .project-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
