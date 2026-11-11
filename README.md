@@ -32,6 +32,20 @@ npm run build
 
 Se usa TypeScript 6 porque la versión de `typescript-eslint` fijada en este proyecto requiere TypeScript anterior a 6.1.
 
+## API y datos — P3
+
+El backend implementa proyectos, donaciones simuladas, idempotencia, historial privado y agregados. Consulta el [contrato OpenAPI](docs/api.yaml) y la [guía de integración P1/P2/P4](docs/p3-integracion.md). La infraestructura AWS y el módulo definitivo de identidad se integran con P1/P2.
+
+```sh
+npm run test:backend
+npm run validate:api
+npm run build:backend
+```
+
+`npm test`, `npm run typecheck` y `npm run build` incluyen frontend y backend. Los tests locales no requieren cuenta AWS. Los handlers se compilan para Lambda; no se ha añadido un login ficticio ni un servidor local que lo sustituya.
+
+Cuando exista el stage académico, ejecutar `node scripts/acceptance-p3.mjs` con API_BASE_URL, GESTOR_ACCESS_TOKEN, DONOR_A_ACCESS_TOKEN y DONOR_B_ACCESS_TOKEN proporcionados mediante el entorno local (no en Git ni chat). Crea proyectos/donaciones ficticios y guarda únicamente resultados sanitizados. `--seed-performance` añade 49 proyectos para completar 50 en un dataset inicialmente vacío. P1 elimina los datos al limpiar la pila. Consultar [evidencias](evidence/README.md) para medir rendimiento.
+
 ### Desarrollo en Windows con Docker
 
 Si el control de aplicaciones de Windows bloquea una dependencia nativa de Vite, abre Docker Desktop y ejecuta esto desde la raíz del repositorio en PowerShell.
