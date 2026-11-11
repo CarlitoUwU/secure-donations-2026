@@ -1,5 +1,15 @@
 # Registro de uso de IA
 
+## Desarrollo del frontend
+
+- **Herramienta:** OpenAI Codex.
+- **Participante:** Carlo Valdivia.
+- **Tareas asistidas:** implementación del catálogo, el inicio de sesión con Cognito y los flujos de donante y gestor.
+- **Aportes:** cambios del frontend en la rama `feat/p4-project-catalog`.
+- **Validación humana:** Carlo Valdivia revisó el alcance del frontend. La revisión del PR por otro integrante está pendiente.
+- **Comprobaciones:** pruebas automatizadas, compilación y recorridos en navegador.
+- **Limitaciones:** queda pendiente validar la integración con la API y Cognito desplegados.
+
 ## Contrato de identidad y autorización
 
 - **Herramienta:** OpenAI Codex.
