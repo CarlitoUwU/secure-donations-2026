@@ -29,14 +29,24 @@
 - **Validación humana:** revisión por otro integrante pendiente.
 - **Limitaciones:** esta base solo cubre el estado vacío del catálogo. Las pruebas del sistema desplegado corresponden a etapas posteriores.
 
-## P3 — Parte 1: contrato de la API
+## Contrato de la API
 
-- **Herramienta/modelo:** OpenAI Codex, GPT-6 Astra.
-- **Participante:** P3 (nombre por completar).
+- **Herramienta/modelo:** OpenAI Codex.
+- **Participante:** Geraldine Umasi.
 - **Tareas asistidas:** elaboración del contrato OpenAPI 3.1 para HU-01, HU-02 y HU-05–HU-09, a partir de requirements.md, design.md y la matriz de rutas y autorización propuesta por P2.
 - **Motivo:** concretar los endpoints, cuerpos de solicitud, esquemas de respuesta, ejemplos, estados, errores, scopes y grupos para coordinar la API con P2 y la interfaz con P4.
-- **Aportes:** docs/api.yaml, con los diez endpoints del MVP; incluye edición de proyectos, consulta de donación por ID, idempotencia, paginación y restricción de simulación al stage academic. Commit 354430f en la rama feat/p3-api-datos. Enlace al PR por completar cuando se abra.
+- **Aportes:** docs/api.yaml, con los diez endpoints del MVP; incluye edición de proyectos, consulta de donación por ID, idempotencia, paginación y restricción de simulación al stage academic. Commit 354430f en la rama feat/p3-api-datos. 
 - **Comprobaciones automatizadas:** el contrato pasó la validación local con Swagger Parser (OpenAPI 3.1). Esta comprobación valida el documento; no demuestra el comportamiento de endpoints desplegados.
 - **Validación humana:** pendiente revisión por un compañero distinto del autor y confirmación de integración con P2/P4. Revisar especialmente los límites propuestos de campos, la edición exclusiva de borradores y los formatos de errores.
-- **Limitaciones:** falta confirmar la URL del entorno, el dominio Cognito y las respuestas reales de API Gateway con P1/P2. La consulta de auditoría se declara extensión pendiente. No se accedió a AWS ni se proporcionaron credenciales a la IA.
-- **Proceso de trabajo:** la IA generó inicialmente también código de otras partes de P3; su revisión e incorporación al repositorio se realizan por partes. Esta entrada documenta únicamente el contrato API incorporado en esta etapa; las demás partes tendrán su registro al integrarse.
+- **Limitaciones:** falta confirmar la URL del entorno, el dominio Cognito y las respuestas reales de API Gateway con P1/P2. La consulta de auditoría se declara extensión pendiente.
+
+## Base del backend
+
+- **Herramienta/modelo:** OpenAI Codex.
+- **Participante:** Geraldine Umasi.
+- **Tareas asistidas:** configuración TypeScript/Node.js, dependencias, esquemas Zod, tipos compartidos, errores y adaptador de identidad para el contexto JWT de API Gateway.
+- **Motivo:** preparar componentes comunes para implementar proyectos y donaciones con entradas validadas e identidad tipada.
+- **Aportes:** package.json, package-lock.json, eslint.config.js, backend/tsconfig.json, backend/vitest.config.ts, backend/src/shared/contracts.ts, backend/src/shared/identity.ts, backend/test/base.test.ts y scripts/validate-api.mjs. PR por completar.
+- **Comprobaciones automatizadas:** TypeScript sin errores; 12 casos de pruebas de la base aprobados, incluidos límites de importes, campos no permitidos, estados e identidad.
+- **Validación humana:** pendiente revisión por otro integrante y coordinación con P2 del adaptador de identidad definitivo.
+- **Limitaciones:** el adaptador consume claims que API Gateway debe haber validado; no verifica firmas JWT ni configura Cognito. No demuestra autenticación real en AWS. Los formatos de grupos deben confirmarse con P2 en el entorno desplegado.
