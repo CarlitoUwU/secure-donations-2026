@@ -31,11 +31,20 @@ T09: A crea, A obtiene 200; B obtiene el mismo 404 para el ID de A y un UUID ine
 
 ## Para P1
 
-Variables obligatorias para las funciones: `PROJECTS_TABLE`, `DONATIONS_TABLE`, `IDEMPOTENCY_TABLE`, `AUDIT_TABLE`. Usar una sola región. No hay credenciales en configuración.
+Variables obligatorias para las funciones: `PROJECTS_TABLE`, `DONATIONS_TABLE`, `IDEMPOTENCY_TABLE`, `AUDIT_EVENTS_TABLE`. Región acordada con P1: `us-east-2`. No hay credenciales en configuración.
 
 Compilar con `npm run build:backend`. Salida: `backend/dist/handler.js`; ejemplo de handler Lambda: `backend/dist/handler.listProjects` si CodeUri es la raíz del repositorio e incluye dependencias de producción. Alternativa SAM/esbuild: entrypoint `backend/src/handler.ts` y handler `handler.listProjects`. Elegir y verificar una estrategia en SAM; el contrato no asume un empaquetado ya existente.
 
 Cada exportación debe ir a una función/rol distinto. Asociar ruta exacta de OpenAPI, payload 2.0 y scope según matriz P2. La función de simulación y su evento deben tener condición SAM para que solo existan en `academic`. El chequeo de stage en código es defensa adicional. Configurar CORS (Authorization, Content-Type, Idempotency-Key), throttling, retención ≤14 días y access logs sanitizados de API Gateway para 401/403 que nunca llegan a Lambda.
+
+### Acuerdo de infraestructura con P1
+
+- Plantilla única: `infra/template.yaml`, mantenida por P1.
+- Parámetro `Environment`: `academic`. Convención de nombres: `donaciones-${Environment}-<recurso>`.
+- Variables: `PROJECTS_TABLE=donaciones-academic-projects`, `DONATIONS_TABLE=donaciones-academic-donations`, `IDEMPOTENCY_TABLE=donaciones-academic-idempotency`, `AUDIT_EVENTS_TABLE=donaciones-academic-audit-events`. En SAM usar referencias a las tablas para asignar sus nombres.
+- Funciones: `donaciones-academic-<accion>`. El nombre físico puede estar en español; el export del handler debe conservar su nombre de código, por ejemplo `createDonation`.
+- Configurar también `StageName: academic` en HTTP API: el backend verifica `event.requestContext.stage`. Un parámetro Environment con ese valor no modifica automáticamente el stage de API Gateway.
+- P1 debe integrar recursos, roles y rutas en esa plantilla; esta guía no afirma que ya estén desplegados.
 
 ### Tablas e índices
 

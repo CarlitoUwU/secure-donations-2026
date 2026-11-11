@@ -99,7 +99,7 @@ function runtime(op: Operation) {
           projects: required("PROJECTS_TABLE"),
           donations: required("DONATIONS_TABLE"),
           idempotency: required("IDEMPOTENCY_TABLE"),
-          audit: required("AUDIT_TABLE"),
+          audit: required("AUDIT_EVENTS_TABLE"),
         }),
       );
     }
