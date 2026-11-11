@@ -1,17 +1,20 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
-import { ApiError } from "./contracts.js";
+import { ApiError, missing } from "./contracts.js";
 import type { Identity } from "./contracts.js";
 
 export type Event = APIGatewayProxyEventV2WithJWTAuthorizer;
-// P2 can supply its shared authz implementation through this interface.
 export type ResolveIdentity = (event: Event) => Identity;
 export const verifiedIdentity: ResolveIdentity = (event) => {
-  const claims = event.requestContext.authorizer?.jwt?.claims;
+  const jwt = event.requestContext.authorizer?.jwt;
+  const claims = jwt?.claims;
+  const expectedClient = process.env.COGNITO_CLIENT_ID;
   if (
     !claims ||
     claims.token_use !== "access" ||
+    !expectedClient ||
+    claims.client_id !== expectedClient ||
     typeof claims.sub !== "string" ||
-    !claims.sub
+    !claims.sub.trim()
   )
     throw new ApiError(401, "UNAUTHORIZED", "Autenticación requerida");
   const raw = claims["cognito:groups"];
@@ -19,24 +22,43 @@ export const verifiedIdentity: ResolveIdentity = (event) => {
   if (Array.isArray(raw) && raw.every((v) => typeof v === "string"))
     groups = raw;
   else if (typeof raw === "string") {
-    // API Gateway representations must be confirmed jointly with P2 in AWS.
-    if (raw.startsWith("[")) {
+    if (raw.startsWith("[") && raw.endsWith("]")) {
       try {
         const parsed: unknown = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.every((v) => typeof v === "string"))
           groups = parsed;
       } catch {
-        groups = raw
-          .slice(1, -1)
-          .split(",")
-          .map((v) => v.trim())
-          .filter((v) => /^[A-Z_]+$/.test(v));
+        // Accept a bracketed list only if every element is an unquoted name.
+        if (/^\[[A-Z_]+(?:(?:,\s*| +)[A-Z_]+)*\]$/.test(raw)) {
+          groups = raw.slice(1, -1).split(/[,\s]+/);
+        }
       }
-    } else groups = raw.split(/[ ,]+/).filter(Boolean);
+    } else if (/^[A-Z_]+$/.test(raw)) groups = [raw];
   }
   return {
     sub: claims.sub,
     groups,
-    scopes: typeof claims.scope === "string" ? claims.scope.split(" ") : [],
+    scopes:
+      typeof claims.scope === "string"
+        ? claims.scope.split(/ +/).filter(Boolean)
+        : [],
   };
 };
+
+export function requirePermission(
+  identity: Identity,
+  group: "DONANTE" | "GESTOR" | "AUDITOR",
+  scope: string,
+): void {
+  if (!identity.groups.includes(group) || !identity.scopes.includes(scope)) {
+    throw new ApiError(403, "FORBIDDEN", "Permisos insuficientes");
+  }
+}
+
+export function requireOwnDonation<T extends { donorSub: string }>(
+  identity: Identity,
+  donation: T | null | undefined,
+): T {
+  if (!donation || donation.donorSub !== identity.sub) throw missing();
+  return donation;
+}

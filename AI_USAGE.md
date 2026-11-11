@@ -1,5 +1,17 @@
 # Registro de uso de IA
 
+## Configuración de identidad Cognito
+
+- **Continuación en [PR #4](https://github.com/CarlitoUwU/secure-donations-2026/pull/4):** comprobación de cliente, roles, scopes y propietario en el backend, con pruebas unitarias. Guías de integración SAM, alta TOTP, verificación NIST y script de pruebas contra la API. Pasaron lint, tipos, OpenAPI, 17 pruebas y compilación local. Validación de entorno AWS pendiente.
+
+- **Herramienta:** OpenAI Codex.
+- **Participante:** JorgeCY21 (P2).
+- **Tareas asistidas:** plantilla local de Cognito y guía de integración, decisiones de tokens y propuesta de enrolamiento TOTP.
+- **Aportes:** `infra/cognito.yaml`, `docs/cognito-setup.md` y enlace en README; rama `feature/cognito-identity`. PR pendiente.
+- **Validación humana:** pendiente de revisión por otro integrante y coordinación con P1/P4.
+- **Comprobaciones locales:** YAML analizado correctamente (7 recursos y 3 parámetros), `git diff --check` sin errores. SAM y cfn-lint no están instalados; no se validó el esquema CloudFormation ni se ejecutaron pruebas AWS.
+- **Limitaciones:** no se accedió ni desplegó en AWS; PKCE, alta TOTP y pruebas de aceptación pendientes. OPTIONAL no impone MFA por grupo.
+
 ## Contrato de identidad y autorización
 
 - **Herramienta:** OpenAI Codex.

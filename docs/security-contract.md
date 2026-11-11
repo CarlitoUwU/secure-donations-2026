@@ -37,6 +37,8 @@ Propuesta a confirmar con P1: HTTP API, JWT authorizer e integración Lambda con
 
 Gateway valida firma, emisor y tiempos del JWT, y compara audience con `aud` o, si este falta, con `client_id`. Como `aud` tiene precedencia, el adaptador comprobará también el `client_id` esperado. Cada ruta privada exige su scope para impedir el uso de ID tokens. No se agregarán scopes alternativos a una ruta suponiendo que Gateway exige todos: acepta al menos uno de los declarados.
 
+Para cumplir el 401 de T11, la integración usa una audiencia propia de la API mediante `resource` en Cognito. El ID token tiene como audiencia el ID de cliente y falla la comprobación de audiencia. Ver [configuración de Cognito](cognito-setup.md).
+
 P2 normalizará grupos y scopes a colecciones internas y entregará una identidad equivalente a `{ sub, groups, scopes }`. Antes de implementar el parser se comprobará la representación real de `cognito:groups` en payload 2.0 con una muestra sanitizada, sin guardar el JWT. Formatos ambiguos se rechazan; no se utilizan coincidencias parciales de texto para autorizar.
 
 Este límite de confianza requiere invocación por la integración autorizada de Gateway. P1 debe restringir permisos de invocación y evitar una Function URL pública que permita eludir el authorizer. No se aceptarán claims proporcionados por el navegador como sustituto del contexto.

@@ -6,6 +6,10 @@ El proyecto parte del [enunciado](requirements.md) y del [diseño técnico](desi
 
 ## Contrato de seguridad
 
+La [configuración local de Cognito](docs/cognito-setup.md) describe la plantilla de identidad, los parámetros para infraestructura y las verificaciones pendientes de PKCE y MFA.
+
+La [guía de verificación](docs/security-verification.md) reúne los casos de aceptación de seguridad y el mapeo de NIST SP 800-207.
+
 La [propuesta de identidad y autorización de P2](docs/security-contract.md) contiene la matriz de rutas, el contrato de claims, el reparto con P1/P3/P4 y el diseño de T09. Está pendiente de confirmación del equipo; no representa controles desplegados.
 
 ## Desarrollo local
