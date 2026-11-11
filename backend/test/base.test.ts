@@ -1,14 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   donationInput,
   projectInput,
   projectPatch,
   simulationInput,
 } from "../src/shared/contracts.js";
-import { verifiedIdentity } from "../src/shared/identity.js";
+import {
+  requireOwnDonation,
+  requirePermission,
+  verifiedIdentity,
+} from "../src/shared/identity.js";
 import type { Event } from "../src/shared/identity.js";
 
 describe("Base: validación de entradas e identidad", () => {
+  beforeEach(() => vi.stubEnv("COGNITO_CLIENT_ID", "test-client"));
+  afterEach(() => vi.unstubAllEnvs());
   const projectId = "11111111-1111-4111-8111-111111111111";
   it.each([100, 100000])(
     "CA-05.1: acepta límite de importe %s",
@@ -73,6 +79,7 @@ describe("Base: validación de entradas e identidad", () => {
       verifiedIdentity(
         event({
           token_use: "access",
+          client_id: "test-client",
           sub: "A",
           "cognito:groups": '["DONANTE"]',
           scope: "api/donations.read",
@@ -83,5 +90,74 @@ describe("Base: validación de entradas e identidad", () => {
       groups: ["DONANTE"],
       scopes: ["api/donations.read"],
     });
+  });
+  it("CA-03.2: rechaza un access token de otro cliente aunque tenga la audiencia esperada", () => {
+    expect(() =>
+      verifiedIdentity(
+        event({
+          token_use: "access",
+          sub: "A",
+          client_id: "otro",
+          aud: "test-client",
+        }),
+      ),
+    ).toThrow(expect.objectContaining({ status: 401 }));
+  });
+  it("rechaza listas de grupos malformadas sin extraer privilegios parciales", () => {
+    const identity = verifiedIdentity(
+      event({
+        token_use: "access",
+        sub: "A",
+        client_id: "test-client",
+        "cognito:groups": "[GESTOR, basura!]",
+        scope: "api/projects.write",
+      }),
+    );
+    expect(() =>
+      requirePermission(identity, "GESTOR", "api/projects.write"),
+    ).toThrow(expect.objectContaining({ status: 403 }));
+  });
+  it("T03/T12: tener el scope sin el grupo no concede acceso", () => {
+    const donor = {
+      sub: "A",
+      groups: ["DONANTE"],
+      scopes: ["api/projects.write"],
+    };
+    const manager = {
+      sub: "B",
+      groups: ["GESTOR"],
+      scopes: ["api/donations.read"],
+    };
+    expect(() =>
+      requirePermission(donor, "GESTOR", "api/projects.write"),
+    ).toThrow(expect.objectContaining({ status: 403 }));
+    expect(() =>
+      requirePermission(manager, "DONANTE", "api/donations.read"),
+    ).toThrow(expect.objectContaining({ status: 403 }));
+    expect(() =>
+      requirePermission(donor, "DONANTE", "api/donations.read"),
+    ).toThrow(expect.objectContaining({ status: 403 }));
+    expect(() =>
+      requirePermission(donor, "DONANTE", "api/projects.write"),
+    ).not.toThrow();
+  });
+  it("T09: devuelve el mismo 404 para una donación ajena e inexistente", () => {
+    const donor = {
+      sub: "A",
+      groups: ["DONANTE"],
+      scopes: ["api/donations.read"],
+    };
+    expect(requireOwnDonation(donor, { donorSub: "A" })).toEqual({
+      donorSub: "A",
+    });
+    for (const donation of [{ donorSub: "B" }, undefined]) {
+      expect(() => requireOwnDonation(donor, donation)).toThrow(
+        expect.objectContaining({
+          status: 404,
+          code: "NOT_FOUND",
+          message: "Recurso no encontrado",
+        }),
+      );
+    }
   });
 });

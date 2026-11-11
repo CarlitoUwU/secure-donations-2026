@@ -21,7 +21,7 @@ Decisiones locales:
 
 Configurar la biblioteca OIDC para code + PKCE S256, state y nonce; conservar tokens en memoria. La plantilla habilita code grant, pero no ofrece una propiedad que imponga PKCE por sí sola. No declarar PKCE verificado hasta inspeccionar el flujo real y comprobar que la aplicación envía challenge S256 y canjea con el verifier correspondiente. Comprobar también rechazo de un verifier incorrecto.
 
-P4 recibirá los outputs públicos `Issuer`, `ClientId` y `LoginDomain`, más callbacks, logout y scopes. Nunca entregar un secreto de cliente porque no existe. La biblioteca puede necesitar estado transitorio del redirect; acordar su almacenamiento sin persistir tokens en localStorage.
+P4 recibirá los outputs públicos `Issuer`, `ClientId` y `LoginDomain`, más callbacks, logout, scopes y la URL HTTPS que P1 elija como audiencia de la API. En la solicitud a `/oauth2/authorize`, incluir esa URL como `resource` además de PKCE y los scopes `api/*`. El valor debe coincidir exactamente con `ApiAudience` en Gateway. La biblioteca puede necesitar estado transitorio del redirect, separado de los tokens en memoria.
 
 Al salir: revocar refresh token, limpiar memoria y finalizar sesión de Hosted UI. Registrar fallos de revocación sin guardar el token. Un JWT ya emitido puede seguir aceptándose en Gateway hasta expirar; T13 debe demostrar esta ventana y que el refresh token no permite renovar tras revocación.
 
@@ -30,16 +30,34 @@ Al salir: revocar refresh token, limpiar memoria y finalizar sesión de Hosted U
 Se propone MFA OPTIONAL en el pool para conservar MFA opcional en donantes. Esto NO impone MFA a GESTOR/AUDITOR por pertenecer a grupos. La seguridad depende del siguiente proceso administrativo, que debe validar el equipo antes de habilitar cuentas privilegiadas:
 
 1. Crear dos donantes, un futuro gestor y un futuro auditor con nombres ficticios y sin grupos privilegiados. No crear contraseñas ni usuarios mediante esta plantilla.
-2. Completar cambio de contraseña temporal y asociar/verificar TOTP con una sesión controlada y las APIs de Cognito; con MFA opcional se necesita un recorrido de enrolamiento que se definirá en la integración. No habilitar flujos de contraseña adicionales en el cliente público para facilitar este paso.
+2. En una sesión supervisada, crear un cliente temporal de enrolamiento en el mismo pool con code + PKCE y solo `openid` y `aws.cognito.signin.user.admin`, sin scopes `api/*`. Usar un callback controlado, completar el cambio de contraseña temporal y usar el access token temporal con `AssociateSoftwareToken` y `VerifySoftwareToken`. Mostrar la semilla al titular únicamente en el momento de registrarla en su autenticador. El cliente público de la aplicación no concede el scope de administración de usuario.
 3. Confirmar administrativamente que SOFTWARE_TOKEN_MFA está habilitado y preferido para la cuenta, y hacer un nuevo login que exija TOTP antes de asignar el grupo privilegiado.
-4. Revocar las sesiones previas y esperar al menos la vigencia máxima de sus access tokens antes de habilitar privilegios. Asignar GESTOR/AUDITOR solo tras estas comprobaciones y repetir T14 con una sesión nueva.
+4. Ejecutar `AdminUserGlobalSignOut`, borrar el cliente de enrolamiento y cerrar la sesión de Hosted UI. Esperar la expiración de los access tokens del cliente temporal antes de habilitar privilegios: ese scope permite cambiar preferencias MFA. Asignar GESTOR/AUDITOR solo tras estas comprobaciones y repetir T14 con una ventana privada y el cliente de la aplicación.
 5. No permitir desactivar MFA de una cuenta privilegiada: retirar primero el grupo, revocar sesiones y esperar la expiración de tokens anteriores. El cambio de grupo tampoco invalida JWT ya emitidos inmediatamente.
 
 No hay una prueba de segundo factor por solicitud derivable simplemente de `cognito:groups`, ni se inventará un claim `mfa`. Si el equipo no puede garantizar el enrolamiento y mantenimiento administrativo, esta propuesta NO está cerrada: evaluar MFA obligatorio para todos con P4 y registrar que cambia la experiencia opcional del donante, o un diseño adicional de enforcement. No considerar T14 cumplida por configurar OPTIONAL.
 
 ## Integración de Gateway
 
-P1 configurará HTTP API, payload 2.0, issuer y audience desde los outputs, scopes de cada ruta privada y permisos de invocación restringidos. Ver `security-contract.md` para separación entre Gateway y authz. Esta plantilla no crea rutas, authorizer ni permisos IAM de las Lambdas.
+P1 configurará HTTP API, payload 2.0, issuer desde Cognito, una audiencia HTTPS exclusiva de la API, scopes de cada ruta privada y permisos de invocación restringidos. El `resource` de Cognito coloca esa URL en `aud` del access token. El ID token tiene el ID del cliente como audiencia y se rechaza antes de revisar scopes. Esto evita depender de que un rechazo por scope produzca 401, ya que puede producir 403. Los nombres de scope `api/*` del OpenAPI permanecen iguales. Esta plantilla no crea rutas, authorizer ni permisos IAM de las Lambdas.
+
+Incorporar este bloque bajo `Properties` de la HTTP API. `CognitoIssuer` y `ApiAudience` son parámetros de la pila principal:
+
+```yaml
+Auth:
+  DefaultAuthorizer: CognitoJwt
+  Authorizers:
+    CognitoJwt:
+      IdentitySource: $request.header.Authorization
+      JwtConfiguration:
+        issuer: !Ref CognitoIssuer
+        audience:
+          - !Ref ApiAudience
+```
+
+En cada evento Lambda `HttpApi`, fijar `PayloadFormatVersion: '2.0'` y `Auth.AuthorizationScopes` con el scope de la matriz. Para las tres rutas públicas, fijar `Auth.Authorizer: NONE`. Pasar `COGNITO_CLIENT_ID: !Ref CognitoClientId` a las funciones privadas. Si falta la variable, el módulo rechaza la solicitud.
+
+En los handlers privados, llamar `verifiedIdentity(event)` y `requirePermission(identity, grupo, scope)` antes de consultar recursos o escribir. Para detalle y simulación, llamar `requireOwnDonation(identity, donation)` después de cargar el registro. Para historial, consultar únicamente por `identity.sub`. P3 conserva la condición de propietario en la escritura transaccional. El módulo está en `backend/src/shared/identity.ts`.
 
 ## Validaciones pendientes antes de desplegar
 
@@ -58,6 +76,8 @@ P1 configurará HTTP API, payload 2.0, issuer y audience desde los outputs, scop
 - [TOTP](https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-settings-mfa-totp.html).
 - [MFA y diferencias de enrolamiento](https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-settings-mfa.html).
 - [Revocación](https://docs.aws.amazon.com/cognito/latest/developerguide/token-revocation.html).
+- [Vinculación del access token a una audiencia de API](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-define-resource-servers.html#cognito-user-pools-resource-binding).
+- [JWT authorizer en SAM](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-controlling-access-to-apis-oauth2-authorizer.html).
 
 ## Resumen para coordinar con P1
 

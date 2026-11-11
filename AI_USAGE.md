@@ -2,6 +2,8 @@
 
 ## Configuración de identidad Cognito
 
+- **Continuación en [PR #4](https://github.com/CarlitoUwU/secure-donations-2026/pull/4):** comprobación de cliente, roles, scopes y propietario en el backend, con pruebas unitarias. Guías de integración SAM, alta TOTP, verificación NIST y script de pruebas contra la API. Pasaron lint, tipos, OpenAPI, 17 pruebas y compilación local. Validación de entorno AWS pendiente.
+
 - **Herramienta:** OpenAI Codex.
 - **Participante:** JorgeCY21 (P2).
 - **Tareas asistidas:** plantilla local de Cognito y guía de integración, decisiones de tokens y propuesta de enrolamiento TOTP.
