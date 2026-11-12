@@ -64,9 +64,7 @@ Resources:
       StageName: !Ref Environment
       CorsConfiguration:
         AllowOrigins:
-          - http://localhost:5173
-          - http://127.0.0.1:5173
-          - !Sub https://${FrontendDistribution.DomainName}
+          - "*"
         AllowHeaders:
           - Authorization
           - Content-Type
@@ -233,12 +231,8 @@ Resources:
         - api/projects.write
         - api/donations.write
         - api/donations.read
-      CallbackURLs:
-        - !Select [0, !Ref CallbackURLs]
-        - !Sub https://${FrontendDistribution.DomainName}/auth/callback
-      LogoutURLs:
-        - !Select [0, !Ref LogoutURLs]
-        - !Sub https://${FrontendDistribution.DomainName}/
+      CallbackURLs: !Ref CallbackURLs
+      LogoutURLs: !Ref LogoutURLs
       AccessTokenValidity: 15
       IdTokenValidity: 15
       RefreshTokenValidity: 1
@@ -610,7 +604,7 @@ Resources:
             ReferrerPolicy: strict-origin-when-cross-origin
             Override: true
           ContentSecurityPolicy:
-            ContentSecurityPolicy: !Sub "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix} https://cognito-idp.${AWS::Region}.${AWS::URLSuffix} https://${DomainPrefix}.auth.${AWS::Region}.amazoncognito.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self';"
+            ContentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://*.amazonaws.com https://*.amazoncognito.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self';"
             Override: true
 
   FrontendDistribution:
