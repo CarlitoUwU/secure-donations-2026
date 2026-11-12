@@ -66,6 +66,7 @@ Resources:
         AllowOrigins:
           - http://localhost:5173
           - http://127.0.0.1:5173
+          - !Sub https://${FrontendDistribution.DomainName}
         AllowHeaders:
           - Authorization
           - Content-Type
@@ -232,8 +233,12 @@ Resources:
         - api/projects.write
         - api/donations.write
         - api/donations.read
-      CallbackURLs: !Ref CallbackURLs
-      LogoutURLs: !Ref LogoutURLs
+      CallbackURLs:
+        - !Select [0, !Ref CallbackURLs]
+        - !Sub https://${FrontendDistribution.DomainName}/auth/callback
+      LogoutURLs:
+        - !Select [0, !Ref LogoutURLs]
+        - !Sub https://${FrontendDistribution.DomainName}/
       AccessTokenValidity: 15
       IdTokenValidity: 15
       RefreshTokenValidity: 1
@@ -562,6 +567,104 @@ Resources:
               AuthorizationScopes:
                 - api/donations.read
 
+  # ------------------------------------------------------------
+  # Publicacion de Frontend (P1 - S3 Privado + CloudFront OAC + CSP/HSTS)
+  # ------------------------------------------------------------
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub donaciones-${Environment}-frontend-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  FrontendOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub donaciones-${Environment}-frontend-oac
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  SecurityHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub donaciones-${Environment}-security-headers
+        SecurityHeadersConfig:
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 31536000
+            IncludeSubdomains: true
+            Preload: true
+            Override: true
+          ContentTypeOptions:
+            Override: true
+          ReferrerPolicy:
+            ReferrerPolicy: strict-origin-when-cross-origin
+            Override: true
+          ContentSecurityPolicy:
+            ContentSecurityPolicy: !Sub "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix} https://cognito-idp.${AWS::Region}.${AWS::URLSuffix} https://${DomainPrefix}.auth.${AWS::Region}.amazoncognito.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self';"
+            Override: true
+
+  FrontendDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        HttpVersion: http2and3
+        PriceClass: PriceClass_100
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt FrontendOAC.Id
+            S3OriginConfig: {}
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 0
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 0
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipalReadOnly
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub ${FrontendBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${FrontendDistribution}
+
 Outputs:
   ApiUrl:
     Description: Base HTTPS URL of the HTTP API (includes stage)
@@ -593,3 +696,12 @@ Outputs:
   AuditEventsTableName:
     Description: DynamoDB Audit Events Table Name
     Value: !Ref AuditEventsTable
+  FrontendUrl:
+    Description: CloudFront HTTPS URL for the React SPA
+    Value: !Sub https://${FrontendDistribution.DomainName}
+  FrontendBucketName:
+    Description: S3 Bucket Name for frontend build deployment
+    Value: !Ref FrontendBucket
+  DistributionId:
+    Description: CloudFront Distribution ID for invalidation
+    Value: !Ref FrontendDistribution
