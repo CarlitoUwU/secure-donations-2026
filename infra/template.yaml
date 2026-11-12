@@ -95,6 +95,7 @@ Resources:
               issuer: !Sub https://cognito-idp.${AWS::Region}.${AWS::URLSuffix}/${UserPool}
               audience:
                 - !Ref ApiAudience
+                - !Ref PublicClient
 
   # ------------------------------------------------------------
   # DynamoDB Tables (P3 - API y Datos)
