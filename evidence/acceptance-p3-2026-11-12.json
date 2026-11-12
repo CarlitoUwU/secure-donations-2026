@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-11-12T14:37:12.738Z",
+  "revision": "Indicar commit evaluado",
+  "environment": "academic",
+  "checks": [
+    {
+      "id": "T01/CA-01.2/CA-02.2",
+      "result": "PASS"
+    },
+    {
+      "id": "T04/CA-05.2",
+      "result": "PASS"
+    },
+    {
+      "id": "T05/CA-05.1",
+      "result": "PASS"
+    },
+    {
+      "id": "T06/CA-05.4",
+      "result": "PASS"
+    },
+    {
+      "id": "T07/CA-05.4",
+      "result": "PASS"
+    },
+    {
+      "id": "T09/CA-07.2",
+      "result": "PASS"
+    },
+    {
+      "id": "T08/CA-06.2/CA-NF04.1",
+      "result": "PASS"
+    },
+    {
+      "id": "CA-06.3",
+      "result": "PASS"
+    }
+  ],
+  "note": "Recursos ficticios creados permanecen hasta limpieza de la pila por P1"
+}
