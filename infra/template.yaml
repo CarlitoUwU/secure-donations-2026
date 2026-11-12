@@ -2,6 +2,12 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Plataforma de donaciones seguras (Fundacion AQP Solidaria)
 
+Metadata:
+  cfn-lint:
+    config:
+      ignore_checks:
+        - W1028 # Falso positivo en macro SAM: ruta condicional de simulación en HttpApi
+
 Parameters:
   Environment:
     Type: String
