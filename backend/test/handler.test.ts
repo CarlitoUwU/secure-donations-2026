@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeHandler, verifiedIdentity } from "../src/handler.js";
 import type { Event } from "../src/handler.js";
 import { Service } from "../src/service.js";
@@ -14,10 +14,17 @@ const event = (claims: Record<string, unknown> = {}): Event =>
     requestContext: {
       requestId: "req-test",
       stage: "academic",
-      authorizer: { jwt: { claims, scopes: [] } },
+      authorizer: {
+        jwt: {
+          claims: { client_id: "test-client", ...claims },
+          scopes: [],
+        },
+      },
     },
-  }) as Event;
+  }) as unknown as Event;
 describe("HTTP y límites de identidad", () => {
+  beforeEach(() => vi.stubEnv("COGNITO_CLIENT_ID", "test-client"));
+  afterEach(() => vi.unstubAllEnvs());
   it("T11: ID token se rechaza aunque tenga grupo", () => {
     expect(() =>
       verifiedIdentity(

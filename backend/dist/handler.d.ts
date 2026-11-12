@@ -1,0 +1,17 @@
+import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
+import { Service } from "./service.js";
+import type { Operation } from "./service.js";
+import type { Event, ResolveIdentity } from "./shared/identity.js";
+export { verifiedIdentity } from "./shared/identity.js";
+export type { Event, ResolveIdentity } from "./shared/identity.js";
+export declare function makeHandler(op: Operation, service: Service, identity?: ResolveIdentity, log?: (line: string) => void): (event: Event) => Promise<APIGatewayProxyStructuredResultV2>;
+export declare const listProjects: (event: Event) => Promise<APIGatewayProxyStructuredResultV2>;
+export declare const getProject: (event: Event) => Promise<APIGatewayProxyStructuredResultV2>;
+export declare const projectStats: (event: Event) => Promise<APIGatewayProxyStructuredResultV2>;
+export declare const createProject: (event: Event) => Promise<APIGatewayProxyStructuredResultV2>;
+export declare const editProject: (event: Event) => Promise<APIGatewayProxyStructuredResultV2>;
+export declare const publishProject: (event: Event) => Promise<APIGatewayProxyStructuredResultV2>;
+export declare const createDonation: (event: Event) => Promise<APIGatewayProxyStructuredResultV2>;
+export declare const simulateDonation: (event: Event) => Promise<APIGatewayProxyStructuredResultV2>;
+export declare const myDonations: (event: Event) => Promise<APIGatewayProxyStructuredResultV2>;
+export declare const getDonation: (event: Event) => Promise<APIGatewayProxyStructuredResultV2>;
