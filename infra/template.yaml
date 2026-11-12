@@ -34,9 +34,17 @@ Parameters:
     Type: CommaDelimitedList
     Default: http://localhost:5173/
     Description: Exact approved logout URLs; HTTPS except localhost development
+  FrontendURL:
+    Type: String
+    Default: ""
+    Description: >
+      CloudFront HTTPS URL of the deployed frontend (e.g. https://dXXXX.cloudfront.net).
+      When non-empty, it is appended to CallbackURLs and LogoutURLs so Cognito accepts
+      the production redirect. Leave empty for local-only deployments.
 
 Conditions:
   IsAcademic: !Equals [!Ref Environment, academic]
+  HasFrontendURL: !Not [!Equals [!Ref FrontendURL, ""]]
 
 Globals:
   Function:
@@ -231,8 +239,24 @@ Resources:
         - api/projects.write
         - api/donations.write
         - api/donations.read
-      CallbackURLs: !Ref CallbackURLs
-      LogoutURLs: !Ref LogoutURLs
+      CallbackURLs: !If
+        - HasFrontendURL
+        - !Split
+          - ","
+          - !Join
+            - ","
+            - - !Join [",", !Ref CallbackURLs]
+              - !Sub "${FrontendURL}/auth/callback"
+        - !Ref CallbackURLs
+      LogoutURLs: !If
+        - HasFrontendURL
+        - !Split
+          - ","
+          - !Join
+            - ","
+            - - !Join [",", !Ref LogoutURLs]
+              - !Sub "${FrontendURL}/"
+        - !Ref LogoutURLs
       AccessTokenValidity: 15
       IdTokenValidity: 15
       RefreshTokenValidity: 1
