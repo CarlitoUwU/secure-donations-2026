@@ -7,6 +7,11 @@ Parameters:
     Type: String
     Default: academic
     AllowedValues: [academic, dev]
+    Description: Deployment environment (academic enables simulated donations)
+  ApiAudience:
+    Type: String
+    Default: https://api.donaciones-academic.local
+    Description: Expected audience for API Gateway JWT Authorizer (matches VITE_API_AUDIENCE)
   # Cognito
   DomainPrefix:
     Type: String
@@ -24,31 +29,151 @@ Parameters:
     Default: http://localhost:5173/
     Description: Exact approved logout URLs; HTTPS except localhost development
 
+Conditions:
+  IsAcademic: !Equals [!Ref Environment, academic]
+
 Globals:
   Function:
     Runtime: nodejs24.x
     Architectures: [arm64]
     Timeout: 10
     MemorySize: 256
+    CodeUri: ../
     Environment:
       Variables:
         STAGE: !Ref Environment
+        PROJECTS_TABLE: !Ref ProjectsTable
+        DONATIONS_TABLE: !Ref DonationsTable
+        IDEMPOTENCY_TABLE: !Ref IdempotencyTable
+        AUDIT_EVENTS_TABLE: !Ref AuditEventsTable
+        COGNITO_CLIENT_ID: !Ref PublicClient
 
 Resources:
-  # TEMPORAL: solo para probar el despliegue
-  SmokeTestFunction:
-    Type: AWS::Serverless::Function
+  # ------------------------------------------------------------
+  # API Gateway HTTP API (P1 - Integracion con CORS, Auth & Throttling)
+  # ------------------------------------------------------------
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
     Properties:
-      FunctionName: !Sub secure-donations-${Environment}-smoke-test
-      Handler: index.handler
-      InlineCode: |
-        exports.handler = async () => ({ ok: true, stage: process.env.STAGE });
-        
-  # Cognito
+      StageName: !Ref Environment
+      CorsConfiguration:
+        AllowOrigins:
+          - http://localhost:5173
+          - http://127.0.0.1:5173
+        AllowHeaders:
+          - Authorization
+          - Content-Type
+          - Idempotency-Key
+        AllowMethods:
+          - GET
+          - POST
+          - PATCH
+          - OPTIONS
+        MaxAge: 600
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 100
+        ThrottlingRateLimit: 50
+      Auth:
+        DefaultAuthorizer: CognitoJwt
+        Authorizers:
+          CognitoJwt:
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              issuer: !Sub https://cognito-idp.${AWS::Region}.${AWS::URLSuffix}/${UserPool}
+              audience:
+                - !Ref ApiAudience
+
+  # ------------------------------------------------------------
+  # DynamoDB Tables (P3 - API y Datos)
+  # ------------------------------------------------------------
+  ProjectsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub donaciones-${Environment}-projects
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: projectId
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: projectId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: status-createdAt
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  DonationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub donaciones-${Environment}-donations
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: donationId
+          AttributeType: S
+        - AttributeName: donorSub
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: donationId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: donorSub-createdAt
+          KeySchema:
+            - AttributeName: donorSub
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  IdempotencyTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub donaciones-${Environment}-idempotency
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+
+  AuditEventsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub donaciones-${Environment}-audit-events
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: eventType
+          AttributeType: S
+        - AttributeName: sortKey
+          AttributeType: S
+      KeySchema:
+        - AttributeName: eventType
+          KeyType: HASH
+        - AttributeName: sortKey
+          KeyType: RANGE
+
+  # ------------------------------------------------------------
+  # Cognito Identity Resources (P2 - Identidad y Seguridad)
+  # ------------------------------------------------------------
   UserPool:
     Type: AWS::Cognito::UserPool
     Properties:
-      UserPoolName: donations-academic
+      UserPoolName: !Sub donations-${Environment}
       UserPoolTier: LITE
       UsernameConfiguration:
         CaseSensitive: false
@@ -127,25 +252,338 @@ Resources:
     Properties:
       UserPoolId: !Ref UserPool
       GroupName: DONANTE
+
   ManagerGroup:
     Type: AWS::Cognito::UserPoolGroup
     Properties:
       UserPoolId: !Ref UserPool
       GroupName: GESTOR
+
   AuditorGroup:
     Type: AWS::Cognito::UserPoolGroup
     Properties:
       UserPoolId: !Ref UserPool
       GroupName: AUDITOR
 
+  # ------------------------------------------------------------
+  # Lambda Functions (P3 - API y Datos, empaquetado por P1)
+  # ------------------------------------------------------------
+
+  # 1. List Projects (Publica - GET /v1/projects)
+  ListProjectsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub donaciones-${Environment}-list-projects
+      Handler: backend/dist/handler.listProjects
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+              Resource:
+                - !GetAtt ProjectsTable.Arn
+                - !Sub ${ProjectsTable.Arn}/index/status-createdAt
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /v1/projects
+            Method: GET
+            PayloadFormatVersion: '2.0'
+            Auth:
+              Authorizer: NONE
+
+  # 2. Get Project (Publica - GET /v1/projects/{projectId})
+  GetProjectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub donaciones-${Environment}-get-project
+      Handler: backend/dist/handler.getProject
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource:
+                - !GetAtt ProjectsTable.Arn
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /v1/projects/{projectId}
+            Method: GET
+            PayloadFormatVersion: '2.0'
+            Auth:
+              Authorizer: NONE
+
+  # 3. Project Stats (Publica - GET /v1/projects/{projectId}/stats)
+  ProjectStatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub donaciones-${Environment}-project-stats
+      Handler: backend/dist/handler.projectStats
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource:
+                - !GetAtt ProjectsTable.Arn
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /v1/projects/{projectId}/stats
+            Method: GET
+            PayloadFormatVersion: '2.0'
+            Auth:
+              Authorizer: NONE
+
+  # 4. Create Project (Privada - POST /v1/projects - GESTOR)
+  CreateProjectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub donaciones-${Environment}-create-project
+      Handler: backend/dist/handler.createProject
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource:
+                - !GetAtt ProjectsTable.Arn
+                - !GetAtt AuditEventsTable.Arn
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /v1/projects
+            Method: POST
+            PayloadFormatVersion: '2.0'
+            Auth:
+              AuthorizationScopes:
+                - api/projects.write
+
+  # 5. Edit Project (Privada - PATCH /v1/projects/{projectId} - GESTOR)
+  EditProjectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub donaciones-${Environment}-edit-project
+      Handler: backend/dist/handler.editProject
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+              Resource:
+                - !GetAtt ProjectsTable.Arn
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource:
+                - !GetAtt AuditEventsTable.Arn
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /v1/projects/{projectId}
+            Method: PATCH
+            PayloadFormatVersion: '2.0'
+            Auth:
+              AuthorizationScopes:
+                - api/projects.write
+
+  # 6. Publish Project (Privada - PATCH /v1/projects/{projectId}/publish - GESTOR)
+  PublishProjectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub donaciones-${Environment}-publish-project
+      Handler: backend/dist/handler.publishProject
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+              Resource:
+                - !GetAtt ProjectsTable.Arn
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource:
+                - !GetAtt AuditEventsTable.Arn
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /v1/projects/{projectId}/publish
+            Method: PATCH
+            PayloadFormatVersion: '2.0'
+            Auth:
+              AuthorizationScopes:
+                - api/projects.write
+
+  # 7. Create Donation (Privada - POST /v1/donations - DONANTE)
+  CreateDonationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub donaciones-${Environment}-create-donation
+      Handler: backend/dist/handler.createDonation
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource:
+                - !GetAtt ProjectsTable.Arn
+                - !GetAtt IdempotencyTable.Arn
+            - Effect: Allow
+              Action:
+                - dynamodb:ConditionCheckItem
+              Resource:
+                - !GetAtt ProjectsTable.Arn
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource:
+                - !GetAtt DonationsTable.Arn
+                - !GetAtt IdempotencyTable.Arn
+                - !GetAtt AuditEventsTable.Arn
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /v1/donations
+            Method: POST
+            PayloadFormatVersion: '2.0'
+            Auth:
+              AuthorizationScopes:
+                - api/donations.write
+
+  # 8. Simulate Donation (Privada - POST /v1/donations/{donationId}/simulate - DONANTE propietario - Solo academic)
+  SimulateDonationFunction:
+    Type: AWS::Serverless::Function
+    Condition: IsAcademic
+    Properties:
+      FunctionName: !Sub donaciones-${Environment}-simulate-donation
+      Handler: backend/dist/handler.simulateDonation
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:UpdateItem
+              Resource:
+                - !GetAtt DonationsTable.Arn
+            - Effect: Allow
+              Action:
+                - dynamodb:UpdateItem
+              Resource:
+                - !GetAtt ProjectsTable.Arn
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource:
+                - !GetAtt AuditEventsTable.Arn
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /v1/donations/{donationId}/simulate
+            Method: POST
+            PayloadFormatVersion: '2.0'
+            Auth:
+              AuthorizationScopes:
+                - api/donations.write
+
+  # 9. My Donations (Privada - GET /v1/donations/me - DONANTE)
+  MyDonationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub donaciones-${Environment}-my-donations
+      Handler: backend/dist/handler.myDonations
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+              Resource:
+                - !GetAtt DonationsTable.Arn
+                - !Sub ${DonationsTable.Arn}/index/donorSub-createdAt
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /v1/donations/me
+            Method: GET
+            PayloadFormatVersion: '2.0'
+            Auth:
+              AuthorizationScopes:
+                - api/donations.read
+
+  # 10. Get Donation (Privada - GET /v1/donations/{donationId} - DONANTE propietario)
+  GetDonationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub donaciones-${Environment}-get-donation
+      Handler: backend/dist/handler.getDonation
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource:
+                - !GetAtt DonationsTable.Arn
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /v1/donations/{donationId}
+            Method: GET
+            PayloadFormatVersion: '2.0'
+            Auth:
+              AuthorizationScopes:
+                - api/donations.read
+
 Outputs:
-  SmokeTestFunctionName:
-    Value: !Ref SmokeTestFunction
+  ApiUrl:
+    Description: Base HTTPS URL of the HTTP API (includes stage)
+    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/${Environment}
+  ApiAudienceValue:
+    Description: Expected audience for frontend (VITE_API_AUDIENCE)
+    Value: !Ref ApiAudience
   UserPoolId:
+    Description: Cognito User Pool ID
     Value: !Ref UserPool
   ClientId:
+    Description: Cognito App Client ID (Public client for React)
     Value: !Ref PublicClient
   Issuer:
+    Description: Cognito Token Issuer URL
     Value: !Sub https://cognito-idp.${AWS::Region}.${AWS::URLSuffix}/${UserPool}
   LoginDomain:
+    Description: Cognito Hosted UI Domain URL
     Value: !Sub https://${DomainPrefix}.auth.${AWS::Region}.amazoncognito.com
+  ProjectsTableName:
+    Description: DynamoDB Projects Table Name
+    Value: !Ref ProjectsTable
+  DonationsTableName:
+    Description: DynamoDB Donations Table Name
+    Value: !Ref DonationsTable
+  IdempotencyTableName:
+    Description: DynamoDB Idempotency Table Name
+    Value: !Ref IdempotencyTable
+  AuditEventsTableName:
+    Description: DynamoDB Audit Events Table Name
+    Value: !Ref AuditEventsTable
